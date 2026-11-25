@@ -106,10 +106,11 @@ class TesteRegrasComex(TesteBase):
         self.assertTrue(any(p.startswith("R9 profiles.yml:0:") for p in validar_repo(self.raiz)))
 
 
-class TesteExcecaoDoDbtJob(TesteBase):
-    """O Fabric grava no dbt job o ID do workspace e o endereço SQL: liberados só ali e só nessas chaves."""
+class TesteItensForaDoGit(TesteBase):
+    """O dbt job e o Warehouse são criados em cada ambiente: nada deles pode entrar em fabric/."""
 
-    ARQUIVO = "fabric/Processing/dbt/dbtj_comex.DataBuildToolJob/dbt-content.json"
+    DBT_JOB = "fabric/Processing/dbt/dbtj_comex.DataBuildToolJob"
+    WAREHOUSE = "fabric/Storage/Silver_Gold/wh_comex.Warehouse"
     GUID = "11111111-1111-1111-1111-111111111111"
     # Partido para este arquivo não conter um endereço que o próprio verificador reprove.
     ENDERECO = "abc123-xyz.datawarehouse." + "fabric.microsoft.com"
@@ -117,23 +118,33 @@ class TesteExcecaoDoDbtJob(TesteBase):
     def regras(self):
         return sorted(p.split(" ", 1)[0] for p in validar_repo(self.raiz))
 
-    def conteudo(self, chave_id="workspaceId", chave_endereco="endPoint"):
-        return '{\n  "%s": "%s",\n  "%s": "%s"\n}\n' % (chave_id, self.GUID, chave_endereco, self.ENDERECO)
+    def test_dbt_job_com_ids_e_endereco_nao_tem_mais_excecao(self):
+        escrever(self.raiz, self.DBT_JOB + "/dbt-content.json",
+                 '{\n  "workspaceId": "%s",\n  "endPoint": "%s"\n}\n' % (self.GUID, self.ENDERECO))
+        self.assertEqual(self.regras(), ["R10", "R4", "R8"])
 
-    def test_arquivo_observado_passa(self):
-        escrever(self.raiz, self.ARQUIVO, self.conteudo())
+    def test_r10_dbt_job_sem_ids_tambem_reprova(self):
+        escrever(self.raiz, self.DBT_JOB + "/dbt-content.json", "{}")
+        self.assertEqual(self.regras(), ["R10"])
+
+    def test_r10_warehouse_reprova_uma_vez_por_pasta(self):
+        escrever(self.raiz, self.WAREHOUSE + "/.platform", "{}")
+        escrever(self.raiz, self.WAREHOUSE + "/silver/Views/v.sql", "select 1")
+        probs = validar_repo(self.raiz)
+        self.assertEqual(len(probs), 1)
+        self.assertTrue(probs[0].startswith(f"R10 {self.WAREHOUSE}:0:"))
+
+    def test_r10_lakehouse_e_pipeline_passam(self):
+        escrever(self.raiz, "fabric/Storage/Bronze/lh_comex.Lakehouse/.platform", "{}")
+        escrever(self.raiz, "fabric/Processing/Pipelines/pl_comex_carga.DataPipeline/.platform", "{}")
         self.assertEqual(validar_repo(self.raiz), [])
 
-    def test_outro_caminho_continua_reprovando(self):
-        escrever(self.raiz, "fabric/Processing/dbt/outro.DataBuildToolJob/dbt-content.json", self.conteudo())
-        self.assertEqual(self.regras(), ["R4", "R8"])
+    def test_r10_vale_so_dentro_de_fabric(self):
+        escrever(self.raiz, "docs/exemplo.Warehouse/leia.md", "exemplo")
+        self.assertEqual(validar_repo(self.raiz), [])
 
-    def test_outras_chaves_no_mesmo_arquivo_reprovam(self):
-        escrever(self.raiz, self.ARQUIVO, self.conteudo(chave_id="outroId", chave_endereco="server"))
-        self.assertEqual(self.regras(), ["R4", "R8"])
-
-    def test_tenant_continua_reprovando_no_arquivo_liberado(self):
-        escrever(self.raiz, self.ARQUIVO, '{"tenantId": "%s"}' % self.GUID)
+    def test_tenant_reprova_tambem_no_dbt_job(self):
+        escrever(self.raiz, self.DBT_JOB + "/dbt-content.json", '{"tenantId": "%s"}' % self.GUID)
         self.assertIn("R7", self.regras())
 
 
