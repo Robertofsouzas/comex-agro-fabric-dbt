@@ -106,6 +106,37 @@ class TesteRegrasComex(TesteBase):
         self.assertTrue(any(p.startswith("R9 profiles.yml:0:") for p in validar_repo(self.raiz)))
 
 
+class TesteExcecaoDoDbtJob(TesteBase):
+    """O Fabric grava no dbt job o ID do workspace e o endereço SQL: liberados só ali e só nessas chaves."""
+
+    ARQUIVO = "fabric/Processing/dbt/dbtj_comex.DataBuildToolJob/dbt-content.json"
+    GUID = "11111111-1111-1111-1111-111111111111"
+    # Partido para este arquivo não conter um endereço que o próprio verificador reprove.
+    ENDERECO = "abc123-xyz.datawarehouse." + "fabric.microsoft.com"
+
+    def regras(self):
+        return sorted(p.split(" ", 1)[0] for p in validar_repo(self.raiz))
+
+    def conteudo(self, chave_id="workspaceId", chave_endereco="endPoint"):
+        return '{\n  "%s": "%s",\n  "%s": "%s"\n}\n' % (chave_id, self.GUID, chave_endereco, self.ENDERECO)
+
+    def test_arquivo_observado_passa(self):
+        escrever(self.raiz, self.ARQUIVO, self.conteudo())
+        self.assertEqual(validar_repo(self.raiz), [])
+
+    def test_outro_caminho_continua_reprovando(self):
+        escrever(self.raiz, "fabric/Processing/dbt/outro.DataBuildToolJob/dbt-content.json", self.conteudo())
+        self.assertEqual(self.regras(), ["R4", "R8"])
+
+    def test_outras_chaves_no_mesmo_arquivo_reprovam(self):
+        escrever(self.raiz, self.ARQUIVO, self.conteudo(chave_id="outroId", chave_endereco="server"))
+        self.assertEqual(self.regras(), ["R4", "R8"])
+
+    def test_tenant_continua_reprovando_no_arquivo_liberado(self):
+        escrever(self.raiz, self.ARQUIVO, '{"tenantId": "%s"}' % self.GUID)
+        self.assertIn("R7", self.regras())
+
+
 class TesteR4R6(TesteBase):
     def test_r4_guid_solto_reprova(self):
         escrever(self.raiz, "Processing/Notebooks/n.Notebook/notebook-content.py",
