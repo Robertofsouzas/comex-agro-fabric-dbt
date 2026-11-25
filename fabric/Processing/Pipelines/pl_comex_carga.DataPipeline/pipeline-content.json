@@ -1,0 +1,570 @@
+{
+  "properties": {
+    "description": "Carrega um mês de exportações do agro da API do Comex Stat para o bronze: guarda o JSON original, grava a tabela e o total de controle. Fonte: Secex/MDIC.",
+    "activities": [
+      {
+        "type": "Copy",
+        "typeProperties": {
+          "source": {
+            "type": "RestSource",
+            "requestMethod": "POST",
+            "requestBody": {
+              "type": "Expression",
+              "value": "@concat('{\"flow\":\"export\",\"monthDetail\":true,\"period\":{\"from\":\"',pipeline().parameters.p_mes,'\",\"to\":\"',pipeline().parameters.p_mes,'\"},\"filters\":[{\"filter\":\"chapter\",\"values\":',pipeline().parameters.p_capitulos,'}],\"details\":[\"ncm\",\"country\",\"state\",\"via\",\"urf\"],\"metrics\":[\"metricFOB\",\"metricKG\"]}')"
+            },
+            "additionalHeaders": {
+              "Content-Type": "application/json"
+            },
+            "httpRequestTimeout": "00:01:40",
+            "datasetSettings": {
+              "type": "RestResource",
+              "typeProperties": {
+                "relativeUrl": "general?language=pt"
+              },
+              "schema": [],
+              "externalReferences": {
+                "connection": "21dd4d79-9c60-4f9e-8e64-d32483aa9d4e"
+              }
+            }
+          },
+          "sink": {
+            "type": "JsonSink",
+            "formatSettings": {
+              "type": "JsonWriteSettings"
+            },
+            "storeSettings": {
+              "type": "LakehouseWriteSettings"
+            },
+            "datasetSettings": {
+              "type": "Json",
+              "typeProperties": {
+                "location": {
+                  "type": "LakehouseLocation",
+                  "folderPath": {
+                    "type": "Expression",
+                    "value": "@concat('raw/',substring(pipeline().parameters.p_mes,0,4),'/',substring(pipeline().parameters.p_mes,5,2))"
+                  },
+                  "fileName": {
+                    "type": "Expression",
+                    "value": "@concat(pipeline().RunId,'_detalhe.json')"
+                  }
+                }
+              },
+              "schema": {},
+              "linkedService": {
+                "name": "lh_comex",
+                "properties": {
+                  "type": "Lakehouse",
+                  "typeProperties": {
+                    "artifactId": "ddaf3587-b01a-ad89-4f4e-7f953b25a51e",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000",
+                    "rootFolder": "Files"
+                  }
+                }
+              }
+            }
+          },
+          "enableStaging": false
+        },
+        "policy": {
+          "timeout": "0.00:30:00",
+          "retry": 0
+        },
+        "name": "detalhe_json",
+        "description": "Extração: chama a API do Comex Stat (POST) para o mês p_mes e os capítulos p_capitulos e guarda a resposta original em Files/raw/AAAA/MM/<run_id>_detalhe.json. Não transforma.",
+        "dependsOn": []
+      },
+      {
+        "type": "Copy",
+        "typeProperties": {
+          "source": {
+            "type": "JsonSource",
+            "formatSettings": {
+              "type": "JsonReadSettings"
+            },
+            "additionalColumns": [
+              {
+                "name": "run_id",
+                "value": {
+                  "type": "Expression",
+                  "value": "@pipeline().RunId"
+                }
+              },
+              {
+                "name": "ref_mes",
+                "value": {
+                  "type": "Expression",
+                  "value": "@pipeline().parameters.p_mes"
+                }
+              },
+              {
+                "name": "carga_em",
+                "value": {
+                  "type": "Expression",
+                  "value": "@utcNow()"
+                }
+              }
+            ],
+            "storeSettings": {
+              "type": "LakehouseReadSettings",
+              "recursive": false,
+              "enablePartitionDiscovery": false
+            },
+            "datasetSettings": {
+              "type": "Json",
+              "typeProperties": {
+                "location": {
+                  "type": "LakehouseLocation",
+                  "folderPath": {
+                    "type": "Expression",
+                    "value": "@concat('raw/',substring(pipeline().parameters.p_mes,0,4),'/',substring(pipeline().parameters.p_mes,5,2))"
+                  },
+                  "fileName": {
+                    "type": "Expression",
+                    "value": "@concat(pipeline().RunId,'_detalhe.json')"
+                  }
+                }
+              },
+              "schema": {},
+              "linkedService": {
+                "name": "lh_comex",
+                "properties": {
+                  "type": "Lakehouse",
+                  "typeProperties": {
+                    "artifactId": "ddaf3587-b01a-ad89-4f4e-7f953b25a51e",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000",
+                    "rootFolder": "Files"
+                  }
+                }
+              }
+            }
+          },
+          "sink": {
+            "type": "LakehouseTableSink",
+            "tableActionOption": "Append",
+            "datasetSettings": {
+              "type": "LakehouseTable",
+              "typeProperties": {
+                "schema": "dbo",
+                "table": "bronze_exportacao"
+              },
+              "schema": [],
+              "linkedService": {
+                "name": "lh_comex",
+                "properties": {
+                  "type": "Lakehouse",
+                  "typeProperties": {
+                    "artifactId": "ddaf3587-b01a-ad89-4f4e-7f953b25a51e",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000",
+                    "rootFolder": "Tables"
+                  }
+                }
+              }
+            }
+          },
+          "translator": {
+            "type": "TabularTranslator",
+            "collectionReference": "$['data']['list']",
+            "mappings": [
+              {
+                "source": {
+                  "path": "['coNcm']"
+                },
+                "sink": {
+                  "name": "coNcm",
+                  "type": "String"
+                }
+              },
+              {
+                "source": {
+                  "path": "['year']"
+                },
+                "sink": {
+                  "name": "year",
+                  "type": "String"
+                }
+              },
+              {
+                "source": {
+                  "path": "['monthNumber']"
+                },
+                "sink": {
+                  "name": "monthNumber",
+                  "type": "String"
+                }
+              },
+              {
+                "source": {
+                  "path": "['ncm']"
+                },
+                "sink": {
+                  "name": "ncm",
+                  "type": "String"
+                }
+              },
+              {
+                "source": {
+                  "path": "['country']"
+                },
+                "sink": {
+                  "name": "country",
+                  "type": "String"
+                }
+              },
+              {
+                "source": {
+                  "path": "['state']"
+                },
+                "sink": {
+                  "name": "state",
+                  "type": "String"
+                }
+              },
+              {
+                "source": {
+                  "path": "['via']"
+                },
+                "sink": {
+                  "name": "via",
+                  "type": "String"
+                }
+              },
+              {
+                "source": {
+                  "path": "['urf']"
+                },
+                "sink": {
+                  "name": "urf",
+                  "type": "String"
+                }
+              },
+              {
+                "source": {
+                  "path": "['metricFOB']"
+                },
+                "sink": {
+                  "name": "metricFOB",
+                  "type": "String"
+                }
+              },
+              {
+                "source": {
+                  "path": "['metricKG']"
+                },
+                "sink": {
+                  "name": "metricKG",
+                  "type": "String"
+                }
+              },
+              {
+                "source": {
+                  "path": "$['run_id']"
+                },
+                "sink": {
+                  "name": "run_id",
+                  "type": "String"
+                }
+              },
+              {
+                "source": {
+                  "path": "$['ref_mes']"
+                },
+                "sink": {
+                  "name": "ref_mes",
+                  "type": "String"
+                }
+              },
+              {
+                "source": {
+                  "path": "$['carga_em']"
+                },
+                "sink": {
+                  "name": "carga_em",
+                  "type": "String"
+                }
+              }
+            ]
+          },
+          "enableStaging": false
+        },
+        "policy": {
+          "timeout": "0.00:30:00",
+          "retry": 0
+        },
+        "name": "detalhe_bronze",
+        "description": "Bronze: lê o arquivo desta execução, faz cada item de data.list virar uma linha e acrescenta em dbo.bronze_exportacao com run_id, ref_mes e carga_em. Tudo como texto.",
+        "dependsOn": [
+          {
+            "activity": "detalhe_json",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Copy",
+        "typeProperties": {
+          "source": {
+            "type": "RestSource",
+            "requestMethod": "POST",
+            "requestBody": {
+              "type": "Expression",
+              "value": "@concat('{\"flow\":\"export\",\"monthDetail\":true,\"period\":{\"from\":\"',pipeline().parameters.p_mes,'\",\"to\":\"',pipeline().parameters.p_mes,'\"},\"filters\":[{\"filter\":\"chapter\",\"values\":',pipeline().parameters.p_capitulos,'}],\"details\":[],\"metrics\":[\"metricFOB\",\"metricKG\"]}')"
+            },
+            "additionalHeaders": {
+              "Content-Type": "application/json"
+            },
+            "httpRequestTimeout": "00:01:40",
+            "datasetSettings": {
+              "type": "RestResource",
+              "typeProperties": {
+                "relativeUrl": "general?language=pt"
+              },
+              "schema": [],
+              "externalReferences": {
+                "connection": "21dd4d79-9c60-4f9e-8e64-d32483aa9d4e"
+              }
+            }
+          },
+          "sink": {
+            "type": "JsonSink",
+            "formatSettings": {
+              "type": "JsonWriteSettings"
+            },
+            "storeSettings": {
+              "type": "LakehouseWriteSettings"
+            },
+            "datasetSettings": {
+              "type": "Json",
+              "typeProperties": {
+                "location": {
+                  "type": "LakehouseLocation",
+                  "folderPath": {
+                    "type": "Expression",
+                    "value": "@concat('raw/',substring(pipeline().parameters.p_mes,0,4),'/',substring(pipeline().parameters.p_mes,5,2))"
+                  },
+                  "fileName": {
+                    "type": "Expression",
+                    "value": "@concat(pipeline().RunId,'_total.json')"
+                  }
+                }
+              },
+              "schema": {},
+              "linkedService": {
+                "name": "lh_comex",
+                "properties": {
+                  "type": "Lakehouse",
+                  "typeProperties": {
+                    "artifactId": "ddaf3587-b01a-ad89-4f4e-7f953b25a51e",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000",
+                    "rootFolder": "Files"
+                  }
+                }
+              }
+            }
+          },
+          "enableStaging": false
+        },
+        "policy": {
+          "timeout": "0.00:30:00",
+          "retry": 0
+        },
+        "name": "total_json",
+        "description": "Total de controle: mesma consulta sem detalhamento, salva em Files/raw/AAAA/MM/<run_id>_total.json. Serve para conferir se o detalhe chegou inteiro.",
+        "dependsOn": [
+          {
+            "activity": "detalhe_bronze",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Copy",
+        "typeProperties": {
+          "source": {
+            "type": "JsonSource",
+            "formatSettings": {
+              "type": "JsonReadSettings"
+            },
+            "additionalColumns": [
+              {
+                "name": "run_id",
+                "value": {
+                  "type": "Expression",
+                  "value": "@pipeline().RunId"
+                }
+              },
+              {
+                "name": "ref_mes",
+                "value": {
+                  "type": "Expression",
+                  "value": "@pipeline().parameters.p_mes"
+                }
+              },
+              {
+                "name": "carga_em",
+                "value": {
+                  "type": "Expression",
+                  "value": "@utcNow()"
+                }
+              }
+            ],
+            "storeSettings": {
+              "type": "LakehouseReadSettings",
+              "recursive": false,
+              "enablePartitionDiscovery": false
+            },
+            "datasetSettings": {
+              "type": "Json",
+              "typeProperties": {
+                "location": {
+                  "type": "LakehouseLocation",
+                  "folderPath": {
+                    "type": "Expression",
+                    "value": "@concat('raw/',substring(pipeline().parameters.p_mes,0,4),'/',substring(pipeline().parameters.p_mes,5,2))"
+                  },
+                  "fileName": {
+                    "type": "Expression",
+                    "value": "@concat(pipeline().RunId,'_total.json')"
+                  }
+                }
+              },
+              "schema": {},
+              "linkedService": {
+                "name": "lh_comex",
+                "properties": {
+                  "type": "Lakehouse",
+                  "typeProperties": {
+                    "artifactId": "ddaf3587-b01a-ad89-4f4e-7f953b25a51e",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000",
+                    "rootFolder": "Files"
+                  }
+                }
+              }
+            }
+          },
+          "sink": {
+            "type": "LakehouseTableSink",
+            "tableActionOption": "Append",
+            "datasetSettings": {
+              "type": "LakehouseTable",
+              "typeProperties": {
+                "schema": "dbo",
+                "table": "bronze_totais"
+              },
+              "schema": [],
+              "linkedService": {
+                "name": "lh_comex",
+                "properties": {
+                  "type": "Lakehouse",
+                  "typeProperties": {
+                    "artifactId": "ddaf3587-b01a-ad89-4f4e-7f953b25a51e",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000",
+                    "rootFolder": "Tables"
+                  }
+                }
+              }
+            }
+          },
+          "translator": {
+            "type": "TabularTranslator",
+            "collectionReference": "$['data']['list']",
+            "mappings": [
+              {
+                "source": {
+                  "path": "['year']"
+                },
+                "sink": {
+                  "name": "year",
+                  "type": "String"
+                }
+              },
+              {
+                "source": {
+                  "path": "['monthNumber']"
+                },
+                "sink": {
+                  "name": "monthNumber",
+                  "type": "String"
+                }
+              },
+              {
+                "source": {
+                  "path": "['metricFOB']"
+                },
+                "sink": {
+                  "name": "metricFOB",
+                  "type": "String"
+                }
+              },
+              {
+                "source": {
+                  "path": "['metricKG']"
+                },
+                "sink": {
+                  "name": "metricKG",
+                  "type": "String"
+                }
+              },
+              {
+                "source": {
+                  "path": "$['run_id']"
+                },
+                "sink": {
+                  "name": "run_id",
+                  "type": "String"
+                }
+              },
+              {
+                "source": {
+                  "path": "$['ref_mes']"
+                },
+                "sink": {
+                  "name": "ref_mes",
+                  "type": "String"
+                }
+              },
+              {
+                "source": {
+                  "path": "$['carga_em']"
+                },
+                "sink": {
+                  "name": "carga_em",
+                  "type": "String"
+                }
+              }
+            ]
+          },
+          "enableStaging": false
+        },
+        "policy": {
+          "timeout": "0.00:30:00",
+          "retry": 0
+        },
+        "name": "total_bronze",
+        "description": "Grava o total em dbo.bronze_totais com run_id, ref_mes e carga_em. Roda por último: é a marca de que a carga do mês ficou completa.",
+        "dependsOn": [
+          {
+            "activity": "total_json",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      }
+    ],
+    "parameters": {
+      "p_mes": {
+        "type": "string",
+        "defaultValue": "2026-10"
+      },
+      "p_capitulos": {
+        "type": "string",
+        "defaultValue": "[\"01\",\"02\",\"03\",\"04\",\"05\",\"06\",\"07\",\"08\",\"09\",\"10\",\"11\",\"12\",\"13\",\"14\",\"15\",\"16\",\"17\",\"18\",\"19\",\"20\",\"21\",\"22\",\"23\",\"24\"]"
+      }
+    }
+  }
+}

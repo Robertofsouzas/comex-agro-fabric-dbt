@@ -141,6 +141,14 @@ ARQUIVOS_GUID_PERMITIDOS: dict[str, str] = {
     "*.VariableLibrary/valueSets/*.json": "conjuntos de valores por ambiente da Variable Library",
     "*.SQLDatabase/*.sqlproj": "identificador do projeto SQL gerado pelo Fabric",
 }
+# Exceção para o que o Fabric grava no dbt job deste ambiente de estudo: o ID do
+# workspace e o endereço SQL do Warehouse (a conexão exige login Microsoft Entra).
+# Vale somente no caminho observado e somente como valor da chave indicada.
+# O ID do tenant continua proibido (R7).
+ARQUIVO_DO_DBT_JOB = "fabric/Processing/dbt/dbtj_comex.DataBuildToolJob/dbt-content.json"
+CHAVES_GUID_POR_ARQUIVO: dict[str, set[str]] = {ARQUIVO_DO_DBT_JOB: {"workspaceId"}}
+CHAVES_ENDERECO_SQL_POR_ARQUIVO: dict[str, set[str]] = {ARQUIVO_DO_DBT_JOB: {"endPoint"}}
+
 # O arquivo de testes precisa de GUIDs, mas só dos evidentemente falsos (um único
 # algarismo repetido). Liberar o arquivo inteiro já deixou passar IDs reais.
 ARQUIVO_DE_TESTES = "tools/test_validar_repo.py"
@@ -156,6 +164,13 @@ def _guid_falso(guid: str) -> bool:
     return len(set(guid.replace("-", "").lower())) == 1
 
 
+def _chave_do_valor(texto: str, posicao: int) -> str | None:
+    """Nome da chave quando o que começa em `posicao` é o valor dela, na mesma linha."""
+    inicio_linha = texto.rfind("\n", 0, posicao) + 1
+    achado = _ANTES_DA_CHAVE.search(texto[inicio_linha:posicao])
+    return achado.group(1) if achado else None
+
+
 def regra_r4(raiz: Path) -> list[str]:
     problemas = []
     for caminho, texto in _arquivos_texto(raiz):
@@ -169,9 +184,8 @@ def regra_r4(raiz: Path) -> list[str]:
                 if _guid_falso(achado.group(0)):
                     continue
             else:
-                inicio_linha = texto.rfind("\n", 0, achado.start()) + 1
-                chave = _ANTES_DA_CHAVE.search(texto[inicio_linha:achado.start()])
-                if chave and chave.group(1) in CHAVES_GUID_PERMITIDAS:
+                chave = _chave_do_valor(texto, achado.start())
+                if chave in CHAVES_GUID_PERMITIDAS | CHAVES_GUID_POR_ARQUIVO.get(relativo, set()):
                     continue
             problemas.append(_problema("R4", raiz, caminho, _linha(texto, achado.start()),
                                        f"GUID fixo {achado.group(0)[:8]}… (use parâmetro, Variable Library ou ID lógico)"))
@@ -228,7 +242,10 @@ ENDERECO_SQL = re.compile(
 def regra_r8(raiz: Path) -> list[str]:
     problemas = []
     for caminho, texto in _arquivos_texto(raiz):
+        liberadas = CHAVES_ENDERECO_SQL_POR_ARQUIVO.get(_rel(raiz, caminho), set())
         for achado in ENDERECO_SQL.finditer(texto):
+            if _chave_do_valor(texto, achado.start()) in liberadas:
+                continue
             problemas.append(_problema("R8", raiz, caminho, _linha(texto, achado.start()),
                                        "endereço SQL do Fabric (string de conexão) no arquivo"))
     return problemas

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "DataPipeline",
+    "displayName": "pl_comex_carga",
+    "description": "Carrega um mês de exportações do agro da API do Comex Stat para o bronze: guarda o JSON original, grava a tabela e o total de controle. Fonte: Secex/MDIC."
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "e3d8bf6a-2260-a8bc-4867-288d99d7065b"
+  }
+}
