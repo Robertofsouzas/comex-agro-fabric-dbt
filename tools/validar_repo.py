@@ -141,14 +141,6 @@ ARQUIVOS_GUID_PERMITIDOS: dict[str, str] = {
     "*.VariableLibrary/valueSets/*.json": "conjuntos de valores por ambiente da Variable Library",
     "*.SQLDatabase/*.sqlproj": "identificador do projeto SQL gerado pelo Fabric",
 }
-# Exceção para o que o Fabric grava no dbt job deste ambiente de estudo: o ID do
-# workspace e o endereço SQL do Warehouse (a conexão exige login Microsoft Entra).
-# Vale somente no caminho observado e somente como valor da chave indicada.
-# O ID do tenant continua proibido (R7).
-ARQUIVO_DO_DBT_JOB = "fabric/Processing/dbt/dbtj_comex.DataBuildToolJob/dbt-content.json"
-CHAVES_GUID_POR_ARQUIVO: dict[str, set[str]] = {ARQUIVO_DO_DBT_JOB: {"workspaceId"}}
-CHAVES_ENDERECO_SQL_POR_ARQUIVO: dict[str, set[str]] = {ARQUIVO_DO_DBT_JOB: {"endPoint"}}
-
 # O arquivo de testes precisa de GUIDs, mas só dos evidentemente falsos (um único
 # algarismo repetido). Liberar o arquivo inteiro já deixou passar IDs reais.
 ARQUIVO_DE_TESTES = "tools/test_validar_repo.py"
@@ -185,7 +177,7 @@ def regra_r4(raiz: Path) -> list[str]:
                     continue
             else:
                 chave = _chave_do_valor(texto, achado.start())
-                if chave in CHAVES_GUID_PERMITIDAS | CHAVES_GUID_POR_ARQUIVO.get(relativo, set()):
+                if chave in CHAVES_GUID_PERMITIDAS:
                     continue
             problemas.append(_problema("R4", raiz, caminho, _linha(texto, achado.start()),
                                        f"GUID fixo {achado.group(0)[:8]}… (use parâmetro, Variable Library ou ID lógico)"))
@@ -242,10 +234,7 @@ ENDERECO_SQL = re.compile(
 def regra_r8(raiz: Path) -> list[str]:
     problemas = []
     for caminho, texto in _arquivos_texto(raiz):
-        liberadas = CHAVES_ENDERECO_SQL_POR_ARQUIVO.get(_rel(raiz, caminho), set())
         for achado in ENDERECO_SQL.finditer(texto):
-            if _chave_do_valor(texto, achado.start()) in liberadas:
-                continue
             problemas.append(_problema("R8", raiz, caminho, _linha(texto, achado.start()),
                                        "endereço SQL do Fabric (string de conexão) no arquivo"))
     return problemas
@@ -264,10 +253,30 @@ def regra_r9(raiz: Path) -> list[str]:
     ]
 
 
+# --------------------------- R10: itens do Fabric que ficam fora do Git
+# O dbt job leva ao Git o workspace e o Warehouse de UM ambiente, e o Warehouse
+# versionaria de novo o que o dbt já cria. Cada ambiente tem os seus.
+PASTA_DOS_ITENS = "fabric"
+ITENS_FORA_DO_GIT = (".DataBuildToolJob", ".Warehouse")
+
+
+def regra_r10(raiz: Path) -> list[str]:
+    pastas = set()
+    for caminho in _arquivos(raiz):
+        partes = caminho.relative_to(raiz).parts
+        if partes[0] != PASTA_DOS_ITENS:
+            continue
+        for posicao, parte in enumerate(partes[:-1]):
+            if parte.endswith(ITENS_FORA_DO_GIT):
+                pastas.add(raiz.joinpath(*partes[:posicao + 1]))
+    return [_problema("R10", raiz, pasta, 0, "item criado em cada ambiente, fora do Git (não commitar)")
+            for pasta in sorted(pastas)]
+
+
 # ------------------------------------------------------------------ execução
 # O número R5 ficou vago de propósito: era uma regra do projeto anterior.
 REGRAS: list[Callable[[Path], list[str]]] = [
-    regra_r1, regra_r2, regra_r3, regra_r4, regra_r6, regra_r7, regra_r8, regra_r9,
+    regra_r1, regra_r2, regra_r3, regra_r4, regra_r6, regra_r7, regra_r8, regra_r9, regra_r10,
 ]
 
 
