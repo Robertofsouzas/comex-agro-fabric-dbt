@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Lakehouse",
+    "displayName": "lh_comex",
+    "description": "Camada bronze. Guarda a resposta original da API em Files/raw e as tabelas bronze_*, sem corrigir nada. Permite reprocessar sem chamar a API de novo."
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "ddaf3587-b01a-ad89-4f4e-7f953b25a51e"
+  }
+}

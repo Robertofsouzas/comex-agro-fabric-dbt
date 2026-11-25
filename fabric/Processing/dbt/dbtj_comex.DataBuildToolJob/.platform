@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "DataBuildToolJob",
+    "displayName": "dbtj_comex",
+    "description": "Busca o projeto dbt no GitHub (branch trabalho) e o executa no wh_comex: carrega a lista de capítulos, cria os modelos e roda os testes. Só transforma; a ingestão é do pipeline."
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "c123f0df-145f-9ea8-4136-444746b47492"
+  }
+}
