@@ -1,0 +1,20 @@
+name: comex_agro
+version: "1.0.0"
+profile: comex_agro
+
+models:
+  comex_agro:
+    silver:
+      +schema: silver
+      +materialized: view
+    gold:
+      +schema: gold
+      +materialized: table
+
+seeds:
+  comex_agro:
+    capitulos_agro:
+      # Texto de 2 posições: como número, "01" viraria 1.
+      # Mudar este tipo depois exige "dbt seed --full-refresh".
+      +column_types:
+        capitulo: varchar(2)

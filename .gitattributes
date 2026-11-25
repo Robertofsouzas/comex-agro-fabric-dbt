@@ -1,0 +1,2 @@
+# Fim de linha igual em qualquer máquina e no Fabric, que grava em LF.
+* text=auto eol=lf
