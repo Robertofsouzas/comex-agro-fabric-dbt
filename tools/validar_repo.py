@@ -137,8 +137,6 @@ CHAVES_GUID_PERMITIDAS: set[str] = {
 ARQUIVOS_GUID_PERMITIDOS: dict[str, str] = {
     "*.SemanticModel/definition/expressions.tmdl": "parâmetros M do Direct Lake, de propósito",
     "*.SemanticModel/definition/relationships.tmdl": "nome interno do relacionamento, igual em todo ambiente",
-    "*.VariableLibrary/variables.json": "valores padrão da Variable Library (IDs de conexão, não são segredo)",
-    "*.VariableLibrary/valueSets/*.json": "conjuntos de valores por ambiente da Variable Library",
     "*.SQLDatabase/*.sqlproj": "identificador do projeto SQL gerado pelo Fabric",
 }
 # O arquivo de testes precisa de GUIDs, mas só dos evidentemente falsos (um único
