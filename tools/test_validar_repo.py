@@ -56,6 +56,16 @@ class TesteR2R3(TesteBase):
                  '{"a": {"workspaceId": "00000000-0000-0000-0000-000000000000"}}')
         self.assertEqual(validar_repo(self.raiz), [])
 
+    def test_r3_expressao_do_pipeline_passa(self):
+        escrever(self.raiz, "Processing/Pipelines/pl_x.DataPipeline/pipeline-content.json",
+                 '{"a": {"workspaceId": "@pipeline().DataFactory"}}')
+        self.assertEqual(validar_repo(self.raiz), [])
+
+    def test_r3_expressao_com_id_fixo_reprova(self):
+        escrever(self.raiz, "Processing/Pipelines/pl_x.DataPipeline/pipeline-content.json",
+                 '{"a": {"workspaceId": "@concat(\'11111111-1111-1111-1111-111111111111\')"}}')
+        self.assertTrue(any(p.startswith("R3 ") for p in validar_repo(self.raiz)))
+
     def test_main_codigo_de_saida(self):
         self.assertEqual(main([self.raiz]), 0)
         escrever(self.raiz, "x.json", "{")
