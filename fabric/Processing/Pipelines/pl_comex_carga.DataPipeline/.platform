@@ -3,7 +3,7 @@
   "metadata": {
     "type": "DataPipeline",
     "displayName": "pl_comex_carga",
-    "description": "Carrega um mês de exportações do agro da API do Comex Stat para o bronze: guarda o JSON original, grava a tabela e o total de controle. Fonte: Secex/MDIC."
+    "description": "Carrega mês a mês as exportações do agro do Comex Stat para o bronze, guardando o JSON original; depois carrega as tabelas auxiliares, atualiza o endpoint SQL e roda o dbt. Para no primeiro erro ou mês vazio. Fonte: Secex/MDIC."
   },
   "config": {
     "version": "2.0",
