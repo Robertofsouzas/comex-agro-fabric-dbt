@@ -56,6 +56,16 @@ class TesteR2R3(TesteBase):
                  '{"a": {"workspaceId": "00000000-0000-0000-0000-000000000000"}}')
         self.assertEqual(validar_repo(self.raiz), [])
 
+    def test_r3_expressao_do_pipeline_passa(self):
+        escrever(self.raiz, "Processing/Pipelines/pl_x.DataPipeline/pipeline-content.json",
+                 '{"a": {"workspaceId": "@pipeline().DataFactory"}}')
+        self.assertEqual(validar_repo(self.raiz), [])
+
+    def test_r3_expressao_com_id_fixo_reprova(self):
+        escrever(self.raiz, "Processing/Pipelines/pl_x.DataPipeline/pipeline-content.json",
+                 '{"a": {"workspaceId": "@concat(\'11111111-1111-1111-1111-111111111111\')"}}')
+        self.assertTrue(any(p.startswith("R3 ") for p in validar_repo(self.raiz)))
+
     def test_main_codigo_de_saida(self):
         self.assertEqual(main([self.raiz]), 0)
         escrever(self.raiz, "x.json", "{")
@@ -91,9 +101,15 @@ class TesteRegrasComex(TesteBase):
         self.assertEqual(sum(p.startswith("R1 ") for p in validar_repo(self.raiz)), 2)
 
     def test_r7_tenant_reprova_mesmo_em_arquivo_liberado(self):
-        escrever(self.raiz, "fabric/vl_comex.VariableLibrary/variables.json", '{"tenantId": "%s"}' % self.GUID)
+        escrever(self.raiz, "fabric/x.SemanticModel/definition/expressions.tmdl", '{"tenantId": "%s"}' % self.GUID)
         escrever(self.raiz, "a.txt", "https://login.microsoftonline.com/" + self.GUID)
         self.assertEqual(sum(p.startswith("R7 ") for p in validar_repo(self.raiz)), 2)
+
+    def test_r4_variable_library_sem_liberacao(self):
+        base = "fabric/Environment/vl_comex.VariableLibrary/"
+        for nome in ("variables.json", "valueSets/dev.json"):
+            escrever(self.raiz, base + nome, '{"value": "%s"}' % self.GUID)
+        self.assertEqual(sum(p.startswith("R4 ") for p in validar_repo(self.raiz)), 2)
 
     def test_r8_endereco_sql_do_fabric(self):
         escrever(self.raiz, "fabric/x.json", '{"endpoint": "abc123-xyz.datawarehouse.' + 'fabric.microsoft.com"}')
