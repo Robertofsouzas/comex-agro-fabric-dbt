@@ -107,6 +107,11 @@ def _valores_da_chave(obj, chave: str) -> Iterator[str]:
             yield from _valores_da_chave(item, chave)
 
 
+def _expressao_sem_id_fixo(valor: str) -> bool:
+    """Expressão do pipeline (começa com @) que não traz um GUID escrito nela: o valor sai da própria execução."""
+    return valor.startswith("@") and all(g == GUID_ZERADO for g in GUID.findall(valor))
+
+
 def regra_r3(raiz: Path) -> list[str]:
     problemas = []
     for caminho in raiz.rglob("pipeline-content.json"):
@@ -118,10 +123,10 @@ def regra_r3(raiz: Path) -> list[str]:
         except json.JSONDecodeError:
             continue  # R2 já aponta
         for valor in _valores_da_chave(dados, "workspaceId"):
-            if valor != GUID_ZERADO:
+            if valor != GUID_ZERADO and not _expressao_sem_id_fixo(valor):
                 linha = _linha(texto, max(texto.find(valor), 0))
                 problemas.append(_problema("R3", raiz, caminho, linha,
-                                           "workspaceId deve ser o GUID zerado (o Fabric resolve no próprio workspace)"))
+                                           "workspaceId deve ser o GUID zerado ou uma expressão do pipeline sem ID fixo"))
     return problemas
 
 
@@ -137,8 +142,6 @@ CHAVES_GUID_PERMITIDAS: set[str] = {
 ARQUIVOS_GUID_PERMITIDOS: dict[str, str] = {
     "*.SemanticModel/definition/expressions.tmdl": "parâmetros M do Direct Lake, de propósito",
     "*.SemanticModel/definition/relationships.tmdl": "nome interno do relacionamento, igual em todo ambiente",
-    "*.VariableLibrary/variables.json": "valores padrão da Variable Library (IDs de conexão, não são segredo)",
-    "*.VariableLibrary/valueSets/*.json": "conjuntos de valores por ambiente da Variable Library",
     "*.SQLDatabase/*.sqlproj": "identificador do projeto SQL gerado pelo Fabric",
 }
 # O arquivo de testes precisa de GUIDs, mas só dos evidentemente falsos (um único
